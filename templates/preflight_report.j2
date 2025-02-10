@@ -1,0 +1,25 @@
+==================================================
+               **  Preflight Check Report **
+==================================================
+
+ System Checks
+--------------------------------------------------
+{% for item in preflight_results %}
+- {{ item['Check'] }}: {% if item['Result'] == 'PASS' %}✅ Passed{% elif item['Result'] == 'FAIL' %}❌ Failed{% else %}ℹ️ INFO{% endif %}
+
+{% if item['Result'] == 'FAIL' or item['Result'] == 'INFO' %}
+    - Reason: {{ item['Reason'] }}
+{% endif %}
+
+{% endfor %}
+==================================================
+** Summary **
+--------------------------------------------------
+{% if preflight_failures | length > 0 %}
+❌ Critical Failures Detected:
+   - {{ preflight_failures | join(', ') }}
+
+** Action Required: Please resolve these issues before proceeding.
+{% else %}
+✅ All Critical Checks Passed! You are good to go.
+{% endif %}

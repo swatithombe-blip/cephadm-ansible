@@ -22,4 +22,6 @@ infra_pkgs:
   - podman
   - lvm2
   - sos
+  - rpcbind
+  - firewalld
 client_group: clients
