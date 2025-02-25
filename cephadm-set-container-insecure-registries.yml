@@ -11,24 +11,25 @@
 #
 # ansible-playbook -i hosts cephadm-set-container-insecure-registries.yml -e insecure_registry=localhost:5000
 
-- name: variables validations
+- name: Variables validations
   ansible.builtin.import_playbook: validate/insecure-registries.yml
 
-- hosts: all
+- name: Add an insecure registry
+  hosts: all
   become: true
   gather_facts: false
   tasks:
-    - name: fail if insecure_registry is undefined
-      fail:
+    - name: Fail if insecure_registry is undefined
+      ansible.builtin.fail:
         msg: "'insecure_registry' is undefined"
       when: insecure_registry is undefined
 
-    - name: add registry as insecure registry in registries.conf
-      blockinfile:
+    - name: Add registry as insecure registry in registries.conf
+      ansible.builtin.blockinfile:
         path: "{{ registries_conf_path | default('/etc/containers/registries.conf') }}"
         state: present
         marker: "# {mark} cephadm-ansible managed : {{ insecure_registry }}"
-        create: yes
+        create: true
         mode: '0644'
         block: |
           [[registry]]

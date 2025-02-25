@@ -18,14 +18,15 @@
 # ansible-playbook -i <inventory host file> cephadm-preflight.yml --extra-vars "ceph_origin=rhcs"
 #
 
-- name: variables validations
+- name: Variables validations
   ansible.builtin.import_playbook: validate/preflight.yml
 
-- hosts: all
+- name: Pre-requisites playbook
+  hosts: all
   become: true
   gather_facts: true
   vars:
-    repos_to_disable: "{{ range(5, ceph_rhcs_version) | map('string') | map('regex_replace', '^', 'rhceph_') | map('regex_replace', '$', '-tools-for-rhel-' + ansible_facts['distribution_major_version'] + '-' + ansible_facts['architecture'] + '-rpms') | list }}"
+    repos_to_disable: "{{ range(5, ceph_rhcs_version) | map('string') | map('regex_replace', '^', 'rhceph_') | map('regex_replace', '$', '-tools-for-rhel-' + ansible_facts['distribution_major_version'] + '-' + ansible_facts['architecture'] + '-rpms') | list }}" # noqa: yaml[line-length]
     packages_to_uninstall:
       - ceph-mds
       - ceph-mgr
@@ -34,47 +35,47 @@
       - ceph-radosgw
       - rbd-mirror
   tasks:
-    - name: import_role ceph_defaults
-      import_role:
+    - name: Import_role ceph_defaults
+      ansible.builtin.import_role:
         name: ceph_defaults
 
-    - name: redhat family of OS related tasks
+    - name: Redhat family of OS related tasks
       when: ansible_facts['os_family'] == 'RedHat'
       block:
-        - name: rhcs related tasks
+        - name: RHCS related tasks
           when: ceph_origin == 'rhcs'
           block:
-            - name: enable red hat ceph storage tools repository
-              rhsm_repository:
+            - name: Enable red hat ceph storage tools repository
+              community.general.rhsm_repository:
                 name: "rhceph-{{ ceph_rhcs_version }}-tools-for-rhel-{{ ansible_facts['distribution_major_version'] }}-{{ ansible_facts['architecture'] }}-rpms"
 
-            - name: disable older rhceph repositories if any on RHEL{{ansible_facts['distribution_major_version']}}
+            - name: Disable older rhceph repositories if any on RHEL{{ ansible_facts['distribution_major_version'] }}
               when: ansible_facts['distribution_major_version'] <= '8'
-              rhsm_repository:
+              community.general.rhsm_repository:
                 name: "{{ repos_to_disable }}"
                 state: absent
 
-        - name: enable ceph package repositories
+        - name: Enable ceph package repositories
           when: ceph_origin in ['community', 'ibm']
           block:
-            - name: set_fact _ceph_repo
-              set_fact:
+            - name: Set_fact _ceph_repo
+              ansible.builtin.set_fact:
                 _ceph_repo:
                   name: ceph_stable
                   description: "{{ 'Ceph Stable repo' if ceph_origin == 'community' else 'IBM Ceph repo' }}"
                   rpm_key: "{{ ceph_stable_key if ceph_origin == 'community' else ceph_ibm_key }}"
                   baseurl: "{{ ceph_community_repo_baseurl if ceph_origin == 'community' else ceph_ibm_repo_baseurl }}"
-                  paths: "{{ [ 'noarch', '$basearch' ] if ceph_origin == 'community' else [ '$basearch' ] }}"
+                  paths: "{{ ['noarch', '$basearch'] if ceph_origin == 'community' else ['$basearch'] }}"
 
-            - name: configure ceph repository key
-              rpm_key:
+            - name: Configure ceph repository key
+              ansible.builtin.rpm_key:
                 key: "{{ _ceph_repo.rpm_key }}"
                 state: present
               register: result
               until: result is succeeded
 
-            - name: configure ceph stable repository
-              yum_repository:
+            - name: Configure ceph stable repository
+              ansible.builtin.yum_repository:
                 name: "ceph_stable_{{ item }}"
                 description: "{{ _ceph_repo.description }} - {{ item }}"
                 gpgcheck: true
@@ -87,11 +88,11 @@
               until: result is succeeded
               loop: "{{ _ceph_repo.paths }}"
 
-        - name: enable repo from shaman - dev
+        - name: Enable repo from shaman - dev
           when: ceph_origin == 'shaman'
           block:
-            - name: fetch ceph development repository
-              uri:
+            - name: Fetch ceph development repository
+              ansible.builtin.uri:
                 url:
                   "https://shaman.ceph.com/api/repos/ceph/\
                   {{ ceph_dev_branch }}/\
@@ -101,8 +102,8 @@
                 return_content: true
               register: ceph_dev_yum_repo
 
-            - name: configure ceph development repository
-              copy:
+            - name: Configure ceph development repository
+              ansible.builtin.copy:
                 content: "{{ ceph_dev_yum_repo.content }}"
                 dest: /etc/yum.repos.d/ceph-dev.repo
                 owner: root
@@ -110,8 +111,8 @@
                 mode: '0644'
                 backup: true
 
-            - name: remove ceph_stable repositories
-              yum_repository:
+            - name: Remove ceph_stable repositories
+              ansible.builtin.yum_repository:
                 name: '{{ item }}'
                 file: ceph_stable
                 state: absent
@@ -119,11 +120,11 @@
                 - ceph_stable
                 - ceph_stable_noarch
 
-        - name: enable custom repo
+        - name: Enable custom repo
           when: ceph_origin == 'custom'
           block:
-            - name: set_fact ceph_custom_repositories
-              set_fact:
+            - name: Set_fact ceph_custom_repositories
+              ansible.builtin.set_fact:
                 ceph_custom_repositories:
                   - name: ceph_custom
                     description: Ceph custom repo
@@ -136,8 +137,8 @@
                     priority: '2'
               when: ceph_custom_repositories is undefined
 
-            - name: setup custom repositories
-              yum_repository:
+            - name: Setup custom repositories
+              ansible.builtin.yum_repository:
                 name: "{{ item.name }}"
                 description: "{{ item.description }}"
                 state: "{{ item.state | default(omit) }}"
@@ -151,43 +152,43 @@
               until: result is succeeded
               loop: "{{ ceph_custom_repositories }}"
 
-        - name: install epel-release
+        - name: Install epel-release
           when: ansible_facts['distribution'] != 'RedHat'
           block:
-            - name: enable required CentOS repository for epel
-              command: dnf config-manager --set-enabled "{{ 'powertools' if ansible_facts['distribution_major_version'] == '8' else 'crb' }}"
+            - name: Enable required CentOS repository for epel
+              ansible.builtin.command: dnf config-manager --set-enabled "{{ 'powertools' if ansible_facts['distribution_major_version'] == '8' else 'crb' }}"
               changed_when: false
 
-            - name: install epel package
-              package:
+            - name: Install epel package
+              ansible.builtin.package:
                 name: epel-release
                 state: present
               register: result
               until: result is succeeded
 
-        - name: remove remaining local services ceph packages
-          dnf:
+        - name: Remove remaining local services ceph packages
+          ansible.builtin.dnf:
             name: "{{ packages_to_uninstall }}"
             state: absent
             autoremove: false
 
-        - name: install ceph-common on rhel
-          package:
+        - name: Install ceph-common on rhel
+          ansible.builtin.package:
             name: ceph-common
             state: "{{ (upgrade_ceph_packages | bool) | ternary('latest', 'present') }}"
           register: result
           until: result is succeeded
 
-        - name: install prerequisites packages on servers
-          package:
+        - name: Install prerequisites packages on servers
+          ansible.builtin.package:
             name: "{{ ceph_pkgs + infra_pkgs }}"
             state: "{{ (upgrade_ceph_packages | bool) | ternary('latest', 'present') }}"
           register: result
           until: result is succeeded
           when: group_names != [client_group]
 
-        - name: install prerequisites packages on clients
-          package:
+        - name: Install prerequisites packages on clients
+          ansible.builtin.package:
             name: "{{ ceph_client_pkgs }}"
             state: "{{ (upgrade_ceph_packages | bool) | ternary('latest', 'present') }}"
           register: result
@@ -195,8 +196,8 @@
           when: client_group in group_names
 
 
-        - name: ensure chronyd is running
-          service:
+        - name: Ensure chronyd is running
+          ansible.builtin.service:
             name: chronyd
             state: started
             enabled: true
@@ -204,76 +205,76 @@
     - name: Ubuntu related tasks
       when: ansible_facts['distribution'] == 'Ubuntu'
       block:
-        - name: enable repo from download.ceph.com
+        - name: Enable repo from download.ceph.com
           block:
-            - name: prevent ceph certificate error
-              apt:
+            - name: Prevent ceph certificate error
+              ansible.builtin.apt:
                 name: ca-certificates
-                state: latest
+                state: present
                 update_cache: true
               register: result
               until: result is succeeded
 
-            - name: configure ceph community repository stable key
-              apt_key:
+            - name: Configure ceph community repository stable key
+              ansible.builtin.apt_key:
                 url: "{{ ceph_stable_key }}"
                 state: present
 
-            - name: configure Ceph community repository
+            - name: Configure Ceph community repository
               when: ceph_origin == 'community'
-              apt_repository:
+              ansible.builtin.apt_repository:
                 repo: "deb https://download.ceph.com/debian-{{ ceph_release }}/ {{ ansible_facts['distribution_release'] }} main"
                 state: present
                 filename: ceph
                 update_cache: false
 
-            - name: configure Ceph testing repository
+            - name: Configure Ceph testing repository
               when: ceph_origin == 'testing'
-              apt_repository:
+              ansible.builtin.apt_repository:
                 repo: "deb https://download.ceph.com/debian-testing/ {{ ansible_facts['distribution_release'] }} main"
                 state: present
                 filename: ceph
                 update_cache: false
 
-            - name: configure Ceph custom repositories
+            - name: Configure Ceph custom repositories
               when: ceph_origin == 'custom'
-              apt_repository:
+              ansible.builtin.apt_repository:
                 repo: "deb {{ item.baseurl }}/ {{ ansible_facts['distribution_release'] }} {{ item.components }}"
                 state: "{{ item.state | default(omit) }}"
                 filename: ceph_custom
                 update_cache: false
               loop: "{{ ceph_custom_repositories }}"
 
-        - name: install prerequisites packages
-          apt:
-            name: "{{ ['python3','chrony'] + ceph_pkgs }}"
+        - name: Install prerequisites packages
+          ansible.builtin.apt:
+            name: "{{ ['python3', 'chrony'] + ceph_pkgs }}"
             state: "{{ (upgrade_ceph_packages | bool) | ternary('latest', 'present') }}"
             update_cache: true
           register: result
           until: result is succeeded
 
-        - name: ensure chronyd is running
-          service:
+        - name: Ensure chronyd is running
+          ansible.builtin.service:
             name: chronyd
             state: started
             enabled: true
 
-        - name: install container engine
+        - name: Install container engine
           block:
-            - name: install podman
+            - name: Install podman
               when: ansible_facts['distribution_version'] is version('20.10', '>=')
-              apt:
+              ansible.builtin.apt:
                 name: podman
                 state: present
                 update_cache: true
               register: result
               until: result is succeeded
 
-            - name: install docker
+            - name: Install docker
               when: ansible_facts['distribution_version'] is version('20.10', '<')
               block:
-                - name: uninstall old version packages
-                  apt:
+                - name: Uninstall old version packages
+                  ansible.builtin.apt:
                     name: "{{ item }}"
                     state: absent
                   loop:
@@ -283,20 +284,20 @@
                     - containerd
                     - runc
 
-                - name: configure docker repository key
-                  apt_key:
+                - name: Configure docker repository key
+                  ansible.builtin.apt_key:
                     url: "https://download.docker.com/linux/ubuntu/gpg"
                     state: present
 
-                - name: setup docker repository
-                  apt_repository:
+                - name: Setup docker repository
+                  ansible.builtin.apt_repository:
                     repo: "deb https://download.docker.com/linux/ubuntu {{ ansible_facts['distribution_release'] }} stable"
                     state: present
                     filename: docker
                     update_cache: false
 
-                - name: install docker
-                  apt:
+                - name: Install docker
+                  ansible.builtin.apt:
                     name: "{{ item }}"
                     state: present
                     update_cache: true
@@ -307,6 +308,6 @@
                     - docker-ce-cli
                     - containerd.io
 
-- name: set insecure container registry in /etc/containers/registries.conf
+- name: Set insecure container registry in /etc/containers/registries.conf
   ansible.builtin.import_playbook: cephadm-set-container-insecure-registries.yml
   when: set_insecure_registries | default(false) | bool
