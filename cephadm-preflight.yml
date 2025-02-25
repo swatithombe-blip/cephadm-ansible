@@ -41,10 +41,15 @@
       - ceph-osd
       - ceph-radosgw
       - rbd-mirror
+
   tasks:
     - name: Import_role ceph_defaults
       ansible.builtin.import_role:
         name: ceph_defaults
+
+    - name: Run Preflight Checks
+      ansible.builtin.import_tasks: checks.yml
+      when: ansible_facts['distribution'] == "RedHat"
 
     - name: Redhat family of OS related tasks
       when: ansible_facts['os_family'] == 'RedHat'
@@ -214,6 +219,14 @@
             name: chronyd
             state: started
             enabled: true
+
+        - name: Ensure firewalld is enabled and running
+          ansible.builtin.systemd:
+            name: firewalld
+            state: started
+            enabled: true
+          register: firewall_status
+          failed_when: false
 
     - name: Ubuntu related tasks
       when: ansible_facts['distribution'] == 'Ubuntu'

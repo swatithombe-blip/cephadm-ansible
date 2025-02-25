@@ -1,0 +1,9 @@
+---
+- name: RHEL Preflight Checks
+  hosts: all
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Run Preflight Checks
+      ansible.builtin.import_tasks: checks.yml
+      when: ansible_facts['distribution'] == "RedHat"
