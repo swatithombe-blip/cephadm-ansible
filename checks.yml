@@ -1,0 +1,250 @@
+- name: Initialize preflight results list
+  ansible.builtin.set_fact:
+    preflight_results: []
+    preflight_failures: []
+
+- name: Import ceph_defaults Role
+  ansible.builtin.import_role:
+    name: ceph_defaults
+
+- name: Collect Installed Package Facts
+  ansible.builtin.package_facts:
+    manager: auto
+
+- name: Check if OS is RHEL 9+
+  ansible.builtin.set_fact:
+    os_check: >-
+      {{ 'PASS' if ansible_facts['distribution'] == 'RedHat' and
+      ansible_facts['distribution_major_version'] | int >= 9 else 'FAIL' }}
+    os_reason: >-
+      {{ 'Ceph requires RHEL 9+. Detected: ' ~ ansible_facts['distribution'] ~ ' ' ~
+      ansible_facts['distribution_version'] if ansible_facts['distribution_major_version'] | int < 9 else 'N/A' }}
+
+- name: Ensure SELinux is set to Enforcing mode
+  ansible.posix.selinux:
+    policy: targeted
+    state: enforcing
+  register: selinux_status
+  changed_when: false
+  failed_when: selinux_status.failed
+
+- name: Determine SELinux Check Result
+  ansible.builtin.set_fact:
+    selinux_check: >-
+      {{ 'PASS' if
+          ansible_facts['selinux']['status'] == 'enabled' and
+          ansible_facts['selinux']['mode'] == 'enforcing'
+          else 'FAIL'
+      }}
+
+- name: Determine SELinux Failure Reason
+  ansible.builtin.set_fact:
+    selinux_reason: "{{ 'SELinux was not in enforcing mode and could not be enforced automatically' if selinux_check == 'FAIL' else 'N/A' }}"
+
+- name: Determine Package Installation Check Result
+  ansible.builtin.set_fact:
+    package_check: "{{ 'PASS' if infra_pkgs | difference(ansible_facts.packages.keys()) | length == 0 else 'FAIL' }}"
+
+- name: Determine Package Installation Failure Reason
+  ansible.builtin.set_fact:
+    package_reason: "{{ 'Missing packages: ' ~ (infra_pkgs | difference(ansible_facts.packages.keys()) | join(', ')) if package_check == 'FAIL' else 'N/A' }}"
+
+- name: Fetch Firewalld status
+  ansible.builtin.systemd:
+    name: firewalld
+    state: started
+  register: firewall_status
+  changed_when: false
+  failed_when: false
+
+- name: Extract Podman version if installed
+  ansible.builtin.set_fact:
+    podman_version: "{{ ansible_facts.packages['podman'][0].version if 'podman' in ansible_facts.packages else '0.0' }}"
+
+- name: Determine if Podman meets version requirement (>=3.3)
+  ansible.builtin.set_fact:
+    podman_check: >-
+      {{ 'PASS' if ('podman' in ansible_facts.packages
+      and (podman_version.split('.')[0] | int > 3
+      or (podman_version.split('.')[0] | int == 3
+      and podman_version.split('.')[1] | int >= 3))) else 'FAIL' }}
+
+    podman_reason: >-
+      {{ 'Podman is not installed, required for Ceph'
+      if 'podman' not in ansible_facts.packages else
+      'Podman version is ' ~ podman_version }}
+
+- name: Validate RHEL software profile
+  ansible.builtin.command: subscription-manager list --consumed
+  register: rhel_profile
+  changed_when: false
+  failed_when: false
+
+- name: Define RHEL Profile Check Result
+  ansible.builtin.set_fact:
+    rhel_profile_check: "{{ 'PASS' if ('Server' in rhel_profile.stdout and 'File and Storage Server' in rhel_profile.stdout) else 'FAIL' }}"
+
+- name: Define RHEL Profile Check Reason
+  ansible.builtin.set_fact:
+    rhel_profile_reason: "{{ 'Incorrect RHEL software profile. Expected: Server with File and Storage Server.' if rhel_profile_check == 'FAIL' else 'N/A' }}"
+
+- name: Get current tuned profile
+  ansible.builtin.command: tuned-adm active
+  register: tuned_profile
+  changed_when: false
+  failed_when: false
+
+- name: Define Tuned Profile Check Result
+  ansible.builtin.set_fact:
+    tuned_profile_check: "{{ 'PASS' if 'throughput-performance' in tuned_profile.stdout else 'FAIL' }}"
+
+- name: Define Tuned Profile Check Reason
+  ansible.builtin.set_fact:
+    tuned_profile_reason: "{{ 'Incorrect tuned profile. Expected: throughput-performance' if tuned_profile_check == 'FAIL' else 'N/A' }}"
+
+- name: Check CPU x86-64-v2 support
+  ansible.builtin.shell: |
+    set -o pipefail
+    lscpu | grep -q 'avx2' && echo 'yes' || echo 'no'
+  register: cpu_supports_x86_64_v2
+  changed_when: false
+  failed_when: false
+
+- name: Define CPU, RAM, Swap, and Filesystem Check Variables
+  ansible.builtin.set_fact:
+    cpu_checks:
+      x86_64_v2:
+        result: "{{ 'PASS' if cpu_supports_x86_64_v2.stdout | trim == 'yes' else 'FAIL' }}"
+        reason: "{{ 'AVX2 instruction set missing. RHEL 9 requires AVX2 support.' if cpu_supports_x86_64_v2.stdout | trim != 'yes' else 'N/A' }}"
+      cores:
+        result: "{{ 'PASS' if ansible_facts['processor_vcpus'] | int >= 4 else 'FAIL' }}"
+        reason: "{{ 'System has only ' ~ ansible_facts['processor_vcpus'] ~ ' cores, required: 4' if ansible_facts['processor_vcpus'] | int < 4 else 'N/A' }}"
+
+    memory_checks:
+      ram:
+        result: "{{ 'PASS' if ansible_facts['memtotal_mb'] | int >= 8192 else 'FAIL' }}"
+        reason: >-
+          {{ 'System has only ' ~ ansible_facts['memtotal_mb'] ~
+          ' MB RAM, required: 8192MB' if ansible_facts['memtotal_mb'] | int < 8192 else 'N/A' }}
+      swap:
+        required: "{{ ((ansible_facts['memtotal_mb'] | int * 1.5) | round) | int }}"
+        actual: "{{ ansible_facts['swaptotal_mb'] | int }}"
+        result: "{{ 'PASS' if (ansible_facts['swaptotal_mb'] | int) >= ((ansible_facts['memtotal_mb'] * 1.5) | round) | int else 'FAIL' }}"
+        reason: >-
+          {{ 'System has only ' ~ ansible_facts['swaptotal_mb'] ~
+          ' MB Swap, required: ' ~ ((ansible_facts['memtotal_mb'] * 1.5) | round) | int ~ ' MB'
+          if ansible_facts['swaptotal_mb'] | int < ((ansible_facts['memtotal_mb'] * 1.5) | round) | int else 'N/A' }}
+
+    filesystem_checks:
+      var_partition:
+        result: "{{ 'PASS' if (ansible_facts['mounts'] | selectattr('mount', 'equalto', '/var') | list | length > 0) else 'FAIL' }}"
+        reason: >-
+          {{ 'N/A' if (ansible_facts['mounts'] | selectattr('mount', 'equalto', '/var') | list | length > 0)
+          else '/var is not a separate partition' }}
+      root_fs:
+        size_gb: >-
+          {{ (ansible_facts['mounts'] | selectattr('mount', 'equalto', '/')
+          | map(attribute='size_total') | first | default(0) | int // 1024**3) }}
+        result: >-
+          {{ 'PASS' if ((ansible_facts['mounts'] | selectattr('mount', 'equalto', '/')
+          | map(attribute='size_total') | first | default(0) | int // 1024**3) >= 100)
+          else 'FAIL' }}
+        reason: >-
+          {{ 'Root FS is only ' ~ (ansible_facts['mounts'] | selectattr('mount', 'equalto', '/')
+          | map(attribute='size_total') | first | default(0) | int // 1024**3) ~ 'GB, required: 100GB'
+          if ((ansible_facts['mounts'] | selectattr('mount', 'equalto', '/')
+          | map(attribute='size_total') | first | default(0) | int // 1024**3) < 100)
+          else 'N/A' }}
+
+- name: Ping all hosts in inventory to measure latency
+  ansible.builtin.shell: |
+    set -o pipefail
+    ping -c 4 {{ item }} | grep 'rtt min/avg/max/mdev' | awk -F'/' '{print $5}'
+  register: ping_results
+  changed_when: false
+  failed_when: false
+  delegate_to: "{{ item }}"
+  with_items: "{{ groups['all'] }}"
+
+- name: Define networking facts
+  ansible.builtin.set_fact:
+    primary_nic: "{{ ansible_facts['default_ipv4']['interface'] | default('Unknown') }}"
+    primary_mtu: "{{ ansible_facts.get(ansible_facts['default_ipv4']['interface'], {}).get('mtu', '0') | int }}"
+    primary_speed: "{{ ansible_facts.get(ansible_facts['default_ipv4']['interface'], {}).get('speed', '-1') | int }}"
+    primary_dhcp: "{{ 'dhcp' if ansible_facts['default_ipv4'].get('gateway') else 'manual' }}"
+    network_interfaces: "{{ ansible_facts['interfaces'] | difference(['lo']) }}"
+
+- name: Store all preflight check results
+  ansible.builtin.set_fact:
+    preflight_results: "{{ preflight_results + [
+      {'Check': 'OS Version', 'Result': os_check, 'Reason': os_reason},
+      {'Check': 'Tuned Profile', 'Result': tuned_profile_check, 'Reason': tuned_profile_reason},
+      {'Check': 'RHEL Profile', 'Result': rhel_profile_check, 'Reason': rhel_profile_reason},
+      {'Check': 'Firewalld Running', 'Result': ('PASS' if firewall_status.status.ActiveState == 'active' else 'FAIL'),
+      'Reason': ('Firewalld was not running and could not be started' if firewall_status.failed else 'N/A')},
+      {'Check': 'Podman Installed', 'Result': podman_check, 'Reason': podman_reason},
+      {'Check': 'SELinux', 'Result': selinux_check, 'Reason': selinux_reason},
+      {'Check': 'Required Packages Installed', 'Result': package_check, 'Reason': package_reason},
+      {'Check': 'Minimum RAM (8GB)', 'Result': memory_checks['ram']['result'], 'Reason': memory_checks['ram']['reason']},
+      {'Check': 'Swap Space (1.5x RAM)', 'Result': memory_checks['swap']['result'], 'Reason': memory_checks['swap']['reason']},
+      {'Check': 'CPU x86-64-v2', 'Result': cpu_checks['x86_64_v2']['result'], 'Reason': cpu_checks['x86_64_v2']['reason']},
+      {'Check': 'CPU Cores >= 4', 'Result': cpu_checks['cores']['result'], 'Reason': cpu_checks['cores']['reason']},
+      {'Check': '/var is a separate partition', 'Result': filesystem_checks['var_partition']['result'], 'Reason': filesystem_checks['var_partition']['reason']},
+      {'Check': 'Root Filesystem >= 100GB', 'Result': filesystem_checks['root_fs']['result'], 'Reason': filesystem_checks['root_fs']['reason']},
+      {'Check': 'NIC Configuration', 'Result': 'INFO',
+      'Reason': 'Available network interfaces: ' ~ (network_interfaces | default([]) | join(', ')) ~
+              ' | Speeds (Mbps): ' ~ (network_interfaces | default([]) | map('extract', ansible_facts) | map(attribute='speed') | list | join(', '))},
+      {'Check': 'Jumbo Frames Enabled', 'Result': ('PASS' if (primary_mtu | int) > 1500 else 'FAIL'),
+      'Reason': ('MTU is ' ~ (primary_mtu | int) ~ ', recommended > 1500' if (primary_mtu | int) <= 1500 else 'N/A')},
+      {'Check': 'NIC Static IP Configuration', 'Result': ('PASS' if primary_dhcp == 'manual' else 'FAIL'),
+      'Reason': ('NIC is using DHCP, static IP is recommended' if primary_dhcp != 'manual' else 'N/A')},
+      {'Check': 'NIC Bandwidth (10GbE Recommended)', 'Result': ('PASS' if (primary_speed | int) >= 10000 else 'FAIL'),
+      'Reason': ('NIC speed is ' ~ primary_speed ~ ' Mbps, recommended is 10GbE' if (primary_speed | int) < 10000 else 'N/A')},
+      {'Check': 'Network Latency', 'Result': 'INFO', 'Reason': 'Average latency (ms): ' ~ (ping_results.results | map(attribute='stdout') | list)}
+    ] }}"
+
+    preflight_failures: "{{ preflight_failures +
+      (['OS Version'] if os_check == 'FAIL' else []) +
+      (['Tuned Profile'] if tuned_profile_check == 'FAIL' else []) +
+      (['RHEL Profile'] if rhel_profile_check == 'FAIL' else []) +
+      (['SELinux'] if selinux_check == 'FAIL' else []) +
+      (['Required Packages'] if package_check == 'FAIL' else preflight_failures) +
+      (['Firewalld Running'] if firewall_status.status.ActiveState != 'active' else []) +
+      (['Podman Installed'] if podman_check == 'FAIL' else []) +
+      (['Minimum RAM'] if memory_checks['ram']['result'] == 'FAIL' else []) +
+      (['Swap Space'] if memory_checks['swap']['result'] == 'FAIL' else []) +
+      (['CPU x86-64-v2'] if cpu_checks['x86_64_v2']['result'] == 'FAIL' else []) +
+      (['CPU Cores'] if cpu_checks['cores']['result'] == 'FAIL' else []) +
+      (['/var Partition'] if filesystem_checks['var_partition']['result'] == 'FAIL' else []) +
+      (['Root Filesystem'] if filesystem_checks['root_fs']['result'] == 'FAIL' else []) +
+      (['Jumbo Frames Enabled'] if primary_mtu | int <= 1500 else []) +
+      (['NIC Static IP Configuration'] if primary_dhcp != 'manual' else []) +
+      (['NIC Bandwidth'] if primary_speed | int < 10000 else [])
+    }}"
+
+- name: Ensure reports directory exists on the Ansible controller
+  ansible.builtin.file:
+    path: ./reports
+    state: directory
+    mode: '0755'
+  delegate_to: localhost
+  run_once: true
+  become: false
+
+- name: Generate preflight check report file per node
+  ansible.builtin.template:
+    src: preflight_report.j2
+    dest: "./reports/{{ inventory_hostname }}_preflight_report.txt"
+    mode: '0644'
+  delegate_to: localhost
+  run_once: false
+  become: false
+
+- name: Show Preflight Check Report
+  ansible.builtin.debug:
+    msg: "{{ lookup('template', 'preflight_report.j2') | split('\n') | join('\n') }}"
+
+- name: Final Check - Fail if any critical checks failed
+  ansible.builtin.fail:
+    msg: "Preflight checks failed for the following: {{ preflight_failures | join(', ') }}. Please resolve these issues before proceeding."
+  when: preflight_failures | length > 0
