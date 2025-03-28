@@ -16,10 +16,15 @@
 ** Summary **
 --------------------------------------------------
 {% if preflight_failures | length > 0 %}
-❌ Critical Failures Detected:
-   - {{ preflight_failures | join(', ') }}
+ℹ️  The following checks did not meet the recommended configuration:
 
-** Action Required: Please resolve these issues before proceeding.
+{% for item in preflight_failures %}
+   - {{ item }}
+{% endfor %}
+
+   These values differ from expected baselines and may impact Ceph performance.
+   Please review and adjust the system configuration.
+
 {% else %}
-✅ All Critical Checks Passed! You are good to go.
+✅ All critical checks meet the recommended values. System is ready for Ceph deployment.
 {% endif %}
