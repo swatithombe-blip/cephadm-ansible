@@ -213,7 +213,9 @@
       (['RHEL Profile'] if rhel_profile_check == 'FAIL' else []) +
       (['SELinux'] if selinux_check == 'FAIL' else []) +
       (['Required Packages'] if package_check == 'FAIL' else preflight_failures) +
-      (['Firewalld Running'] if firewall_status.status.ActiveState != 'active' else []) +
+      (['Firewalld Running']
+       if firewall_status.get('status', {}).get('ActiveState') != 'active'
+       else []) +
       (['Podman Installed'] if podman_check == 'FAIL' else []) +
       (['Minimum RAM'] if memory_checks['ram']['result'] == 'FAIL' else []) +
       (['Swap Space'] if memory_checks['swap']['result'] == 'FAIL' else []) +
