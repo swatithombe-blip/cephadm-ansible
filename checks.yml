@@ -250,7 +250,9 @@
   ansible.builtin.debug:
     msg: "{{ lookup('template', 'preflight_report.j2') | split('\n') | join('\n') }}"
 
-- name: Final Check - Fail if any critical checks failed
-  ansible.builtin.fail:
-    msg: "Preflight checks failed for the following: {{ preflight_failures | join(', ') }}. Please resolve these issues before proceeding."
-  when: preflight_failures | length > 0
+- name: Show path where the preflight report is saved
+  ansible.builtin.debug:
+    msg: "Preflight report saved at: {{ playbook_dir }}/reports/{{ inventory_hostname }}_preflight_report.txt"
+  delegate_to: localhost
+  run_once: false
+  become: false

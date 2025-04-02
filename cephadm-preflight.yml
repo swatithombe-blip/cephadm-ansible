@@ -47,10 +47,6 @@
       ansible.builtin.import_role:
         name: ceph_defaults
 
-    - name: Run Preflight Checks
-      ansible.builtin.import_tasks: checks.yml
-      when: ansible_facts['distribution'] == "RedHat"
-
     - name: Redhat family of OS related tasks
       when: ansible_facts['os_family'] == 'RedHat'
       block:
@@ -333,6 +329,10 @@
                     - docker-ce
                     - docker-ce-cli
                     - containerd.io
+
+    - name: Run Preflight Checks
+      ansible.builtin.include_tasks: checks.yml
+      when: ansible_facts['distribution'] == "RedHat"
 
 - name: Set insecure container registry in /etc/containers/registries.conf
   ansible.builtin.import_playbook: cephadm-set-container-insecure-registries.yml
