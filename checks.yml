@@ -230,7 +230,7 @@
 
 - name: Ensure reports directory exists on the Ansible controller
   ansible.builtin.file:
-    path: ./reports
+    path: "{{ reports_dir }}"
     state: directory
     mode: '0755'
   delegate_to: localhost
@@ -240,7 +240,7 @@
 - name: Generate preflight check report file per node
   ansible.builtin.template:
     src: preflight_report.j2
-    dest: "./reports/{{ inventory_hostname }}_preflight_report.txt"
+    dest: "{{ reports_dir }}/{{ inventory_hostname }}_preflight_report.txt"
     mode: '0644'
   delegate_to: localhost
   run_once: false
@@ -252,7 +252,7 @@
 
 - name: Show path where the preflight report is saved
   ansible.builtin.debug:
-    msg: "Preflight report saved at: {{ playbook_dir }}/reports/{{ inventory_hostname }}_preflight_report.txt"
+    msg: "Preflight report saved at: {{ reports_dir }}/{{ inventory_hostname }}_preflight_report.txt"
   delegate_to: localhost
   run_once: false
   become: false
