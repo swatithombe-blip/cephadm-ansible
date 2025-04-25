@@ -42,6 +42,8 @@
       - ceph-radosgw
       - rbd-mirror
 
+    reports_dir: "{{ lookup('env', 'HOME') }}/cephadm-reports"
+
   tasks:
     - name: Import_role ceph_defaults
       ansible.builtin.import_role:
