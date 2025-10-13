@@ -1,86 +1,105 @@
-from mock.mock import patch
+from mock.mock import patch, MagicMock
 import pytest
 import common
 import ceph_orch_host
 
 
 class TestCephOrchHost(object):
-
     @patch('ceph_orch_host.get_current_state')
-    @patch('ansible.module_utils.basic.AnsibleModule.exit_json')
-    @patch('ansible.module_utils.basic.AnsibleModule.run_command')
-    def test_state_absent_host_exists(self, m_run_command, m_exit_json, m_get_current_state):
-        common.set_module_args({
+    @patch('ceph_orch_host.update_host')
+    def test_state_absent_host_exists(self, m_update_host, m_get_current_state):
+        module = MagicMock()
+        module.params = {
             'state': 'absent',
-            'name': 'ceph-node5'
-        })
-        m_exit_json.side_effect = common.exit_json
-        stdout = "Removed  host 'ceph-node5'"
-        stderr = ''
-        rc = 0
-        m_run_command.return_value = rc, stdout, stderr
-        m_get_current_state_stdout = '[{"addr": "10.10.10.11", "hostname": "ceph-node5", "labels": [], "status": ""}]'
-        m_get_current_state.return_value = rc, ["cephadm",
-                                                "shell",
-                                                "ceph",
-                                                "orch",
-                                                "host",
-                                                "ls",
-                                                "--format",
-                                                "json"], m_get_current_state_stdout, stderr
+            'name': 'ceph-node5',
+            'address': None,
+            'labels': [],
+            'set_admin_label': False,
+            'docker': False,
+            'fsid': None,
+            'image': None,
+        }
+        module.check_mode = False
+
+        module.exit_json.side_effect = common.exit_json
+        module.fail_json.side_effect = common.fail_json
+
+        m_get_current_state.return_value = (
+            0,
+            ['cephadm', 'shell', 'ceph', 'orch', 'host', 'ls', '--format', 'json'],
+            '[{"addr": "10.10.10.11", "hostname": "ceph-node5", "labels": [], "status": ""}]',
+            '',
+        )
+
+        m_update_host.return_value = (
+            0,
+            ["cephadm", "shell", "ceph", "orch", "host", "rm", "ceph-node5"],
+            "Removed host 'ceph-node5'",
+            '',
+        )
 
         with pytest.raises(common.AnsibleExitJson) as result:
-            ceph_orch_host.main()
+            ceph_orch_host.run(module)
 
-        result = result.value.args[0]
-        assert result['changed']
-        assert result['cmd'] == ["cephadm", "shell", "ceph", "orch", "host", "rm", "ceph-node5"]
-        assert result['stdout'] == stdout
-        assert result['rc'] == 0
+        res = result.value.args[0]
+        assert res['changed'] is True
+        assert res['cmd'] == ["cephadm", "shell", "ceph", "orch", "host", "rm", "ceph-node5"]
+        assert res['stdout'] == "Removed host 'ceph-node5'"
+        assert res['rc'] == 0
 
     @patch('ceph_orch_host.get_current_state')
-    @patch('ansible.module_utils.basic.AnsibleModule.exit_json')
-    @patch('ansible.module_utils.basic.AnsibleModule.run_command')
-    def test_state_absent_host_doesnt_exist(self, m_run_command, m_exit_json, m_get_current_state):
-        common.set_module_args({
+    def test_state_absent_host_doesnt_exist(self, m_get_current_state):
+        module = MagicMock()
+        module.params = {
             'state': 'absent',
-            'name': 'ceph-node1'
-        })
-        m_exit_json.side_effect = common.exit_json
+            'name': 'ceph-node1',
+            'address': None,
+            'labels': [],
+            'set_admin_label': False,
+            'docker': False,
+            'fsid': None,
+            'image': None,
+        }
+        module.check_mode = False
 
-        stdout = ""
-        stderr = "Error EINVAL: host ceph-node1 does not exist"
-        rc = 0
-        m_run_command.return_value = rc, stdout, stderr
+        module.exit_json.side_effect = common.exit_json
+        module.fail_json.side_effect = common.fail_json
 
-        m_get_current_state_stdout = '[{"addr": "10.10.10.11", "hostname": "ceph-node5", "labels": [], "status": ""}]'
-        m_get_current_state.return_value = rc, ["cephadm",
-                                                "shell",
-                                                "ceph",
-                                                "orch",
-                                                "host",
-                                                "ls",
-                                                "--format",
-                                                "json"], m_get_current_state_stdout, stderr
+        m_get_current_state.return_value = (
+            0,
+            ['cephadm', 'shell', 'ceph', 'orch', 'host', 'ls', '--format', 'json'],
+            '[{"addr": "10.10.10.11", "hostname": "ceph-node5", "labels": [], "status": ""}]',
+            '',
+        )
 
         with pytest.raises(common.AnsibleExitJson) as result:
-            ceph_orch_host.main()
+            ceph_orch_host.run(module)
 
-        result = result.value.args[0]
-        assert not result['changed']
-        assert result['stdout'] == 'ceph-node1 is not present, skipping.'
-        assert result['rc'] == 0
+        res = result.value.args[0]
+        assert res['changed'] is False
+        assert res['stdout'] == 'ceph-node1 is not present, skipping.'
+        assert res['rc'] == 0
 
     @patch('ceph_orch_host.get_current_state')
-    @patch('ansible.module_utils.basic.AnsibleModule.exit_json')
-    @patch('ansible.module_utils.basic.AnsibleModule.run_command')
-    def test_state_drain(self, m_run_command, m_exit_json, m_get_current_state):
-        common.set_module_args({
+    @patch('ceph_orch_host.update_host')
+    def test_state_drain(self, m_update_host, m_get_current_state):
+        module = MagicMock()
+        module.params = {
             'state': 'drain',
-            'name': 'ceph-node5'
-        })
-        m_exit_json.side_effect = common.exit_json
-        stdout = """
+            'name': 'ceph-node5',
+            'address': None,
+            'labels': [],
+            'set_admin_label': False,
+            'docker': False,
+            'fsid': None,
+            'image': None,
+        }
+        module.check_mode = False
+
+        module.exit_json.side_effect = common.exit_json
+        module.fail_json.side_effect = common.fail_json
+
+        stdout = """\
 Scheduled to remove the following daemons from host 'ceph-node5'
 type                 id
 -------------------- ---------------
@@ -88,119 +107,158 @@ crash                ceph-node5
 osd                  3
 osd                  5
 osd                  7"""
-        m_get_current_state_stdout = '[{"addr": "10.10.10.11", "hostname": "ceph-node5", "labels": [], "status": ""}]'
         stderr = ''
         rc = 0
-        cmd = ["cephadm", "shell", "ceph", "orch", "host", "drain", "ceph-node5"]
-        m_run_command.return_value = rc, stdout, stderr
-        m_get_current_state.return_value = rc, ["cephadm",
-                                                "shell",
-                                                "ceph",
-                                                "orch",
-                                                "host",
-                                                "ls",
-                                                "--format",
-                                                "json"], m_get_current_state_stdout, stderr
+
+        m_get_current_state.return_value = (
+            rc,
+            ['cephadm', 'shell', 'ceph', 'orch', 'host', 'ls', '--format', 'json'],
+            '[{"addr": "10.10.10.11", "hostname": "ceph-node5", "labels": [], "status": ""}]',
+            stderr,
+        )
+
+        m_update_host.return_value = (
+            rc,
+            ["cephadm", "shell", "ceph", "orch", "host", "drain", "ceph-node5"],
+            stdout,
+            stderr,
+        )
 
         with pytest.raises(common.AnsibleExitJson) as result:
-            ceph_orch_host.main()
+            ceph_orch_host.run(module)
 
-        result = result.value.args[0]
-        assert result['changed']
-        assert result['cmd'] == cmd
-        assert result['stdout'] == stdout
-        assert result['rc'] == 0
-
-    @patch('ceph_orch_host.get_current_state')
-    @patch('ansible.module_utils.basic.AnsibleModule.exit_json')
-    @patch('ansible.module_utils.basic.AnsibleModule.run_command')
-    def test_state_present_no_label_diff(self, m_run_command, m_exit_json, m_get_current_state):
-        common.set_module_args({
-            'state': 'present',
-            'name': 'ceph-node5'
-        })
-        m_exit_json.side_effect = common.exit_json
-        stdout = "ceph-node5 is already present, skipping."
-        stderr = ''
-        rc = 0
-        m_run_command.return_value = rc, stdout, stderr
-        m_get_current_state_stdout = '[{"addr": "10.10.10.11", "hostname": "ceph-node5", "labels": [], "status": ""}]'
-        m_get_current_state.return_value = rc, ["cephadm",
-                                                "shell",
-                                                "ceph",
-                                                "orch",
-                                                "host",
-                                                "ls",
-                                                "--format",
-                                                "json"], m_get_current_state_stdout, stderr
-
-        with pytest.raises(common.AnsibleExitJson) as result:
-            ceph_orch_host.main()
-
-        result = result.value.args[0]
-        assert not result['changed']
-        assert result['stdout'] == stdout
-        assert result['rc'] == 0
+        res = result.value.args[0]
+        assert res['changed'] is True
+        assert res['cmd'] == ["cephadm", "shell", "ceph", "orch", "host", "drain", "ceph-node5"]
+        assert res['stdout'] == stdout
+        assert res['rc'] == 0
 
     @patch('ceph_orch_host.get_current_state')
-    @patch('ansible.module_utils.basic.AnsibleModule.exit_json')
-    @patch('ansible.module_utils.basic.AnsibleModule.run_command')
-    def test_state_present_label_diff(self, m_run_command, m_exit_json, m_get_current_state):
-        common.set_module_args({
+    @patch('ceph_orch_host.update_label')
+    @patch('ceph_orch_host.update_host')
+    def test_state_present_no_label_diff(
+        self,
+        m_update_host,
+        m_update_label,
+        m_get_current_state,
+    ):
+        module = MagicMock()
+        module.params = {
             'state': 'present',
             'name': 'ceph-node5',
-            'labels': ["label1", "label2"]
-        })
-        m_exit_json.side_effect = common.exit_json
-        stdout = "Label(s) updated:"
-        stderr = ''
-        rc = 0
-        m_run_command.side_effect = [(rc, "Added label label1 to host ceph-node5", stderr),
-                                     (rc, "Added label label2 to host ceph-node5", stderr)]
-        m_get_current_state_stdout = '[{"addr": "10.10.10.11", "hostname": "ceph-node5", "labels": [], "status": ""}]'
-        m_get_current_state.return_value = rc, ["cephadm",
-                                                "shell",
-                                                "ceph",
-                                                "orch",
-                                                "host",
-                                                "ls",
-                                                "--format",
-                                                "json"], m_get_current_state_stdout, stderr
+            'address': None,
+            'labels': [],
+            'set_admin_label': False,
+            'docker': False,
+            'fsid': None,
+            'image': None,
+        }
+        module.check_mode = False
+
+        module.exit_json.side_effect = common.exit_json
+        module.fail_json.side_effect = common.fail_json
+
+        m_get_current_state.return_value = (
+            0,
+            ['cephadm', 'shell', 'ceph', 'orch', 'host', 'ls', '--format', 'json'],
+            '[{"addr": "10.10.10.11", "hostname": "ceph-node5", "labels": [], "status": ""}]',
+            '',
+        )
 
         with pytest.raises(common.AnsibleExitJson) as result:
-            ceph_orch_host.main()
+            ceph_orch_host.run(module)
 
-        result = result.value.args[0]
-        assert result['changed']
-        assert stdout in result['stdout']
-        assert 'label1' in result['stdout']
-        assert 'label2' in result['stdout']
-        assert result['rc'] == 0
+        res = result.value.args[0]
+        assert res['changed'] is False
+        assert res['stdout'] == 'ceph-node5 is already present, skipping.'
+        assert res['rc'] == 0
+
+        m_update_host.assert_not_called()
+        m_update_label.assert_not_called()
 
     @patch('ceph_orch_host.get_current_state')
-    @patch('ansible.module_utils.basic.AnsibleModule.exit_json')
-    @patch('ansible.module_utils.basic.AnsibleModule.run_command')
-    def test_state_present_label_diff_error(self, m_run_command, m_exit_json, m_get_current_state):
-        common.set_module_args({
+    @patch('ceph_orch_host.update_label')
+    @patch('ceph_orch_host.update_host')
+    def test_state_present_label_diff(
+        self,
+        m_update_host,
+        m_update_label,
+        m_get_current_state,
+    ):
+        module = MagicMock()
+        module.params = {
             'state': 'present',
             'name': 'ceph-node5',
-            'labels': ["label1", "label2"]
-        })
-        m_exit_json.side_effect = common.exit_json
-        stdout = ''
-        stderr = 'fake error'
-        rc = 0
-        m_run_command.return_value = 1, stdout, stderr
-        m_get_current_state_stdout = '[{"addr": "10.10.10.11", "hostname": "ceph-node5", "labels": [], "status": ""}]'
-        m_get_current_state.return_value = rc, ["cephadm",
-                                                "shell",
-                                                "ceph",
-                                                "orch",
-                                                "host",
-                                                "ls",
-                                                "--format",
-                                                "json"], m_get_current_state_stdout, stderr
+            'address': None,
+            'labels': ['label1', 'label2'],
+            'set_admin_label': False,
+            'docker': False,
+            'fsid': None,
+            'image': None,
+        }
+        module.check_mode = False
 
-        with pytest.raises(RuntimeError) as result:
-            ceph_orch_host.main()
-            assert result == 'fake error'
+        module.exit_json.side_effect = common.exit_json
+        module.fail_json.side_effect = common.fail_json
+
+        m_get_current_state.return_value = (
+            0,
+            ['cephadm', 'shell', 'ceph', 'orch', 'host', 'ls', '--format', 'json'],
+            '[{"addr": "10.10.10.11", "hostname": "ceph-node5", "labels": [], "status": ""}]',
+            '',
+        )
+
+        m_update_label.side_effect = [
+            (0, ['cmd'], 'Added label label1 to host ceph-node5', ''),
+            (0, ['cmd'], 'Added label label2 to host ceph-node5', ''),
+        ]
+
+        with pytest.raises(common.AnsibleExitJson) as result:
+            ceph_orch_host.run(module)
+
+        res = result.value.args[0]
+        assert res['changed'] is True
+        assert 'Label(s) updated:' in res['stdout']
+        assert 'label1' in res['stdout']
+        assert 'label2' in res['stdout']
+        assert res['rc'] == 0
+
+        m_update_host.assert_not_called()
+        assert m_update_label.call_count == 2
+
+    @patch('ceph_orch_host.get_current_state')
+    @patch('ceph_orch_host.update_label')
+    def test_state_present_label_diff_error(
+        self,
+        m_update_label,
+        m_get_current_state,
+    ):
+        module = MagicMock()
+        module.params = {
+            'state': 'present',
+            'name': 'ceph-node5',
+            'address': None,
+            'labels': ['label1', 'label2'],
+            'set_admin_label': False,
+            'docker': False,
+            'fsid': None,
+            'image': None,
+        }
+        module.check_mode = False
+
+        module.exit_json.side_effect = common.exit_json
+        module.fail_json.side_effect = common.fail_json
+
+        m_get_current_state.return_value = (
+            0,
+            ['cephadm', 'shell', 'ceph', 'orch', 'host', 'ls', '--format', 'json'],
+            '[{"addr": "10.10.10.11", "hostname": "ceph-node5", "labels": [], "status": ""}]',
+            '',
+        )
+
+        m_update_label.side_effect = RuntimeError('fake error')
+
+        with pytest.raises(RuntimeError) as exc:
+            ceph_orch_host.run(module)
+
+        assert str(exc.value) == 'fake error'

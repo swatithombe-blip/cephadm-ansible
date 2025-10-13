@@ -168,7 +168,10 @@ def main() -> None:
         ),
         supports_check_mode=True
     )
+    run(module)
 
+
+def run(module: AnsibleModule) -> None:
     name = module.params.get('name')
     address = module.params.get('address')
     set_admin_label = module.params.get('set_admin_label')

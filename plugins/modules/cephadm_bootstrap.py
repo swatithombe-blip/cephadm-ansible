@@ -153,112 +153,10 @@ EXAMPLES = '''
 RETURN = '''#  '''
 
 
-def run_module() -> None:
-
-    backward_compat = dict(
-        dashboard=dict(type='bool', required=False, remove_in_version='4.0.0'),
-        firewalld=dict(type='bool', required=False, remove_in_version='4.0.0'),
-        monitoring=dict(type='bool',
-                        required=False,
-                        remove_in_version='4.0.0'),
-        pull=dict(type='bool', required=False, remove_in_version='4.0.0'),
-        dashboard_password=dict(type='str',
-                                required=False,
-                                no_log=True),
-        dashboard_user=dict(type='str', required=False),
-    )
-
-    cephadm_params = dict(
-        docker=dict(type='bool', required=False, default=False),
-        image=dict(type='str', required=False),
-    )
-
-    cephadm_bootstrap_downstream_only = dict(
-        call_home_config=dict(type='str', required=False),
-        call_home_icn=dict(type='str', required=False),
-        ceph_call_home_contact_email=dict(type='str', required=False),
-        ceph_call_home_contact_first_name=dict(type='str', required=False),
-        ceph_call_home_contact_last_name=dict(type='str', required=False),
-        ceph_call_home_contact_phone=dict(type='str', required=False),
-        ceph_call_home_country_code=dict(type='str', required=False),
-        deploy_cephadm_agent=dict(type='bool', required=False),
-        enable_ibm_call_home=dict(type='bool', required=False),
-        enable_storage_insights=dict(type='bool', required=False),
-        storage_insights_config=dict(type='str', required=False),
-        storage_insights_tenant_id=dict(type='str', required=False),
-    )
-
-    cephadm_bootstrap_params = dict(
-        allow_fqdn_hostname=dict(type='bool', required=False, default=False),
-        allow_mismatched_release=dict(type='bool', required=False),
-        allow_overwrite=dict(type='bool', required=False, default=False),
-        apply_spec=dict(type='str', required=False),
-        cluster_network=dict(type='str', required=False),
-        config=dict(type='str', required=False),
-        dashboard_crt=dict(type='str', required=False),
-        dashboard_key=dict(type='str', required=False),
-        dashboard_password_noupdate=dict(type='bool', required=False),
-        fsid=dict(type='str', required=False),
-        initial_dashboard_password=dict(type='str',
-                                        required=False,
-                                        no_log=True),
-        initial_dashboard_user=dict(type='str', required=False),
-        log_to_file=dict(type='bool', required=False),
-        mgr_id=dict(type='str', required=False),
-        mon_addrv=dict(type='str', required=False),
-        mon_id=dict(type='str', required=False),
-        mon_ip=dict(type='str', required=False),
-        no_cleanup_on_failure=dict(type='bool', required=False),
-        no_minimize_config=dict(type='bool', required=False),
-        orphan_initial_daemons=dict(type='bool', required=False),
-        output_config=dict(type='str', required=False),
-        output_dir=dict(type='str', required=False),
-        output_keyring=dict(type='str', required=False),
-        output_pub_ssh_key=dict(type='str', required=False),
-        registry_json=dict(type='str', required=False),
-        registry_password=dict(type='str', required=False, no_log=True),
-        registry_url=dict(type='str', required=False),
-        registry_username=dict(type='str', required=False),
-        shared_ceph_folder=dict(type='str', required=False),
-        single_host_defaults=dict(type='bool', required=False),
-        skip_admin_label=dict(type='bool', required=False),
-        skip_dashboard=dict(type='bool', required=False, default=False),
-        skip_firewalld=dict(type='bool', required=False, default=False),
-        skip_monitoring_stack=dict(type='bool', required=False, default=False),
-        skip_mon_network=dict(type='bool', required=False),
-        skip_ping_check=dict(type='bool', required=False),
-        skip_prepare_host=dict(type='bool', required=False),
-        skip_pull=dict(type='bool', required=False),
-        skip_ssh=dict(type='bool', required=False),
-        ssh_config=dict(type='str', required=False),
-        ssh_private_key=dict(type='str', required=False),
-        ssh_public_key=dict(type='str', required=False),
-        ssh_signed_cert=dict(type='str', required=False),
-        ssh_user=dict(type='str', required=False),
-        ssl_dashboard_port=dict(type='str', required=False),
-        with_centralized_logging=dict(type='bool', required=False),
-        **cephadm_bootstrap_downstream_only,
-    )
-
-    module = AnsibleModule(
-        argument_spec={**cephadm_params,
-                       **cephadm_bootstrap_params,
-                       **backward_compat},
-        supports_check_mode=True,
-        mutually_exclusive=[
-            ('registry_json', 'registry_url'),
-            ('registry_json', 'registry_username'),
-            ('registry_json', 'registry_password'),
-            ('mon_addrv', 'mon_ip'),
-        ],
-        required_together=[
-            ('registry_url', 'registry_username', 'registry_password'),
-            ('initial_dashboard_user', 'initial_dashboard_password'),
-        ],
-        required_one_of=[('mon_ip', 'mon_addrv'),
-                         ],
-    )
-
+def run(module: AnsibleModule,
+        cephadm_params: dict,
+        cephadm_bootstrap_params: dict,
+        backward_compat: dict) -> None:
     fsid = module.params.get('fsid')
     allow_overwrite = module.params.get('allow_overwrite')
 
@@ -364,7 +262,110 @@ def run_module() -> None:
 
 
 def main() -> None:
-    run_module()
+    backward_compat = dict(
+        dashboard=dict(type='bool', required=False, remove_in_version='4.0.0'),
+        firewalld=dict(type='bool', required=False, remove_in_version='4.0.0'),
+        monitoring=dict(type='bool',
+                        required=False,
+                        remove_in_version='4.0.0'),
+        pull=dict(type='bool', required=False, remove_in_version='4.0.0'),
+        dashboard_password=dict(type='str',
+                                required=False,
+                                no_log=True),
+        dashboard_user=dict(type='str', required=False),
+    )
+
+    cephadm_params = dict(
+        docker=dict(type='bool', required=False, default=False),
+        image=dict(type='str', required=False),
+    )
+
+    cephadm_bootstrap_downstream_only = dict(
+        call_home_config=dict(type='str', required=False),
+        call_home_icn=dict(type='str', required=False),
+        ceph_call_home_contact_email=dict(type='str', required=False),
+        ceph_call_home_contact_first_name=dict(type='str', required=False),
+        ceph_call_home_contact_last_name=dict(type='str', required=False),
+        ceph_call_home_contact_phone=dict(type='str', required=False),
+        ceph_call_home_country_code=dict(type='str', required=False),
+        deploy_cephadm_agent=dict(type='bool', required=False),
+        enable_ibm_call_home=dict(type='bool', required=False),
+        enable_storage_insights=dict(type='bool', required=False),
+        storage_insights_config=dict(type='str', required=False),
+        storage_insights_tenant_id=dict(type='str', required=False),
+    )
+
+    cephadm_bootstrap_params = dict(
+        allow_fqdn_hostname=dict(type='bool', required=False, default=False),
+        allow_mismatched_release=dict(type='bool', required=False),
+        allow_overwrite=dict(type='bool', required=False, default=False),
+        apply_spec=dict(type='str', required=False),
+        cluster_network=dict(type='str', required=False),
+        config=dict(type='str', required=False),
+        dashboard_crt=dict(type='str', required=False),
+        dashboard_key=dict(type='str', required=False),
+        dashboard_password_noupdate=dict(type='bool', required=False),
+        fsid=dict(type='str', required=False),
+        initial_dashboard_password=dict(type='str',
+                                        required=False,
+                                        no_log=True),
+        initial_dashboard_user=dict(type='str', required=False),
+        log_to_file=dict(type='bool', required=False),
+        mgr_id=dict(type='str', required=False),
+        mon_addrv=dict(type='str', required=False),
+        mon_id=dict(type='str', required=False),
+        mon_ip=dict(type='str', required=False),
+        no_cleanup_on_failure=dict(type='bool', required=False),
+        no_minimize_config=dict(type='bool', required=False),
+        orphan_initial_daemons=dict(type='bool', required=False),
+        output_config=dict(type='str', required=False),
+        output_dir=dict(type='str', required=False),
+        output_keyring=dict(type='str', required=False),
+        output_pub_ssh_key=dict(type='str', required=False),
+        registry_json=dict(type='str', required=False),
+        registry_password=dict(type='str', required=False, no_log=True),
+        registry_url=dict(type='str', required=False),
+        registry_username=dict(type='str', required=False),
+        shared_ceph_folder=dict(type='str', required=False),
+        single_host_defaults=dict(type='bool', required=False),
+        skip_admin_label=dict(type='bool', required=False),
+        skip_dashboard=dict(type='bool', required=False, default=False),
+        skip_firewalld=dict(type='bool', required=False, default=False),
+        skip_monitoring_stack=dict(type='bool', required=False, default=False),
+        skip_mon_network=dict(type='bool', required=False),
+        skip_ping_check=dict(type='bool', required=False),
+        skip_prepare_host=dict(type='bool', required=False),
+        skip_pull=dict(type='bool', required=False),
+        skip_ssh=dict(type='bool', required=False),
+        ssh_config=dict(type='str', required=False),
+        ssh_private_key=dict(type='str', required=False),
+        ssh_public_key=dict(type='str', required=False),
+        ssh_signed_cert=dict(type='str', required=False),
+        ssh_user=dict(type='str', required=False),
+        ssl_dashboard_port=dict(type='str', required=False),
+        with_centralized_logging=dict(type='bool', required=False),
+        **cephadm_bootstrap_downstream_only,
+    )
+
+    module = AnsibleModule(
+        argument_spec={**cephadm_params,
+                       **cephadm_bootstrap_params,
+                       **backward_compat},
+        supports_check_mode=True,
+        mutually_exclusive=[
+            ('registry_json', 'registry_url'),
+            ('registry_json', 'registry_username'),
+            ('registry_json', 'registry_password'),
+            ('mon_addrv', 'mon_ip'),
+        ],
+        required_together=[
+            ('registry_url', 'registry_username', 'registry_password'),
+            ('initial_dashboard_user', 'initial_dashboard_password'),
+        ],
+        required_one_of=[('mon_ip', 'mon_addrv'),
+                         ],
+    )
+    run(module, cephadm_params, cephadm_bootstrap_params, backward_compat)
 
 
 if __name__ == '__main__':

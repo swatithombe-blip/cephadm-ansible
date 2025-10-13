@@ -15,7 +15,7 @@
 #
 # You can override variables using `--extra-vars` parameter:
 #
-# ansible-playbook -i <inventory host file> cephadm-preflight.yml --extra-vars "ceph_origin=rhcs"
+# ansible-playbook -i <inventory host file> cephadm-preflight.yml --extra-vars "ceph_defaults_ceph_origin=rhcs"
 #
 
 - name: Variables validations
@@ -53,35 +53,37 @@
       when: ansible_facts['os_family'] == 'RedHat'
       block:
         - name: RHCS related tasks
-          when: ceph_origin == 'rhcs'
+          when: ceph_defaults_ceph_origin == 'rhcs'
           block:
             - name: Enable red hat ceph storage tools repository
               community.general.rhsm_repository:
-                name: "rhceph-{{ ceph_rhcs_version }}-tools-for-rhel-{{ ansible_facts['distribution_major_version'] }}-{{ ansible_facts['architecture'] }}-rpms"
+                name: >-
+                  "rhceph-{{ ceph_defaults_ceph_rhcs_version }}-tools-for-rhel-
+                  {{ ansible_facts['distribution_major_version'] }}-{{ ansible_facts['architecture'] }}-rpms"
 
             - name: Disable older rhceph repositories if any on RHEL{{ ansible_facts['distribution_major_version'] }}
               when: ansible_facts['distribution_major_version'] == '8'
               community.general.rhsm_repository:
                 name: "{{ repos_4_to_disable + repos_5_to_disable }}"
-                state: absent
+                state: disabled
 
             - name: Disable older rhceph repositories if any on RHEL{{ ansible_facts['distribution_major_version'] }}
               when: ansible_facts['distribution_major_version'] == '9'
               community.general.rhsm_repository:
                 name: "{{ repos_5_to_disable + repos_6_to_disable }}"
-                state: absent
+                state: disabled
 
         - name: Enable ceph package repositories
-          when: ceph_origin in ['community', 'ibm']
+          when: ceph_defaults_ceph_origin in ['community', 'ibm']
           block:
             - name: Set_fact _ceph_repo
               ansible.builtin.set_fact:
                 _ceph_repo:
                   name: ceph_stable
-                  description: "{{ 'Ceph Stable repo' if ceph_origin == 'community' else 'IBM Ceph repo' }}"
-                  rpm_key: "{{ ceph_stable_key if ceph_origin == 'community' else ceph_ibm_key }}"
-                  baseurl: "{{ ceph_community_repo_baseurl if ceph_origin == 'community' else ceph_ibm_repo_baseurl }}"
-                  paths: "{{ ['noarch', '$basearch'] if ceph_origin == 'community' else ['$basearch'] }}"
+                  description: "{{ 'Ceph Stable repo' if ceph_defaults_ceph_origin == 'community' else 'IBM Ceph repo' }}"
+                  rpm_key: "{{ ceph_defaults_ceph_stable_key if ceph_defaults_ceph_origin == 'community' else ceph_defaults_ceph_ibm_key }}"
+                  baseurl: "{{ ceph_community_repo_baseurl if ceph_defaults_ceph_origin == 'community' else ceph_defaults_ceph_ibm_repo_baseurl }}"
+                  paths: "{{ ['noarch', '$basearch'] if ceph_defaults_ceph_origin == 'community' else ['$basearch'] }}"
 
             - name: Configure ceph repository key
               ansible.builtin.rpm_key:
@@ -105,14 +107,14 @@
               loop: "{{ _ceph_repo.paths }}"
 
         - name: Enable repo from shaman - dev
-          when: ceph_origin == 'shaman'
+          when: ceph_defaults_ceph_origin == 'shaman'
           block:
             - name: Fetch ceph development repository
               ansible.builtin.uri:
                 url:
                   "https://shaman.ceph.com/api/repos/ceph/\
-                  {{ ceph_dev_branch }}/\
-                  {{ ceph_dev_sha1 }}/\
+                  {{ ceph_defaults_ceph_dev_branch }}/\
+                  {{ ceph_defaults_ceph_dev_sha1 }}/\
                   centos/{{ ansible_facts['distribution_major_version'] }}/\
                   repo?arch={{ ansible_facts['architecture'] }}"
                 return_content: true
@@ -137,7 +139,7 @@
                 - ceph_stable_noarch
 
         - name: Enable custom repo
-          when: ceph_origin == 'custom'
+          when: ceph_defaults_ceph_origin == 'custom'
           block:
             - name: Set_fact ceph_custom_repositories
               ansible.builtin.set_fact:
@@ -191,22 +193,22 @@
         - name: Install ceph-common on rhel
           ansible.builtin.package:
             name: ceph-common
-            state: "{{ (upgrade_ceph_packages | bool) | ternary('latest', 'present') }}"
+            state: "{{ (ceph_defaults_upgrade_ceph_packages | bool) | ternary('latest', 'present') }}"
           register: result
           until: result is succeeded
 
         - name: Install prerequisites packages on servers
           ansible.builtin.package:
-            name: "{{ ceph_pkgs + infra_pkgs }}"
-            state: "{{ (upgrade_ceph_packages | bool) | ternary('latest', 'present') }}"
+            name: "{{ ceph_defaults_ceph_pkgs + ceph_defaults_infra_pkgs }}"
+            state: "{{ (ceph_defaults_upgrade_ceph_packages | bool) | ternary('latest', 'present') }}"
           register: result
           until: result is succeeded
           when: group_names != [client_group]
 
         - name: Install prerequisites packages on clients
           ansible.builtin.package:
-            name: "{{ ceph_client_pkgs }}"
-            state: "{{ (upgrade_ceph_packages | bool) | ternary('latest', 'present') }}"
+            name: "{{ ceph_defaults_ceph_client_pkgs }}"
+            state: "{{ (ceph_defaults_upgrade_ceph_packages | bool) | ternary('latest', 'present') }}"
           register: result
           until: result is succeeded
           when: client_group in group_names
@@ -245,15 +247,15 @@
                 state: present
 
             - name: Configure Ceph community repository
-              when: ceph_origin == 'community'
+              when: ceph_defaults_ceph_origin == 'community'
               ansible.builtin.apt_repository:
-                repo: "deb https://download.ceph.com/debian-{{ ceph_release }}/ {{ ansible_facts['distribution_release'] }} main"
+                repo: "deb https://download.ceph.com/debian-{{ ceph_defaults_ceph_release }}/ {{ ansible_facts['distribution_release'] }} main"
                 state: present
                 filename: ceph
                 update_cache: false
 
             - name: Configure Ceph testing repository
-              when: ceph_origin == 'testing'
+              when: ceph_defaults_ceph_origin == 'testing'
               ansible.builtin.apt_repository:
                 repo: "deb https://download.ceph.com/debian-testing/ {{ ansible_facts['distribution_release'] }} main"
                 state: present
@@ -261,7 +263,7 @@
                 update_cache: false
 
             - name: Configure Ceph custom repositories
-              when: ceph_origin == 'custom'
+              when: ceph_defaults_ceph_origin == 'custom'
               ansible.builtin.apt_repository:
                 repo: "deb {{ item.baseurl }}/ {{ ansible_facts['distribution_release'] }} {{ item.components }}"
                 state: "{{ item.state | default(omit) }}"
@@ -271,8 +273,8 @@
 
         - name: Install prerequisites packages
           ansible.builtin.apt:
-            name: "{{ ['python3', 'chrony'] + ceph_pkgs }}"
-            state: "{{ (upgrade_ceph_packages | bool) | ternary('latest', 'present') }}"
+            name: "{{ ['python3', 'chrony'] + ceph_defaults_ceph_pkgs }}"
+            state: "{{ (ceph_defaults_upgrade_ceph_packages | bool) | ternary('latest', 'present') }}"
             update_cache: true
           register: result
           until: result is succeeded

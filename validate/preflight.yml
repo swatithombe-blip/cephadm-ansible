@@ -16,11 +16,11 @@
       ansible.builtin.import_role:
         name: ceph_defaults
 
-    - name: Fail when ceph_origin is custom with no repository defined
+    - name: Fail when ceph_defaults_ceph_origin is custom with no repository defined
       ansible.builtin.fail:
-        msg: "You must define 'ceph_custom_repositories' or 'custom_repo_url' when ceph_origin is 'custom'"
+        msg: "You must define 'ceph_custom_repositories' or 'custom_repo_url' when ceph_defaults_ceph_origin is 'custom'"
       when:
-        - ceph_origin == 'custom'
+        - ceph_defaults_ceph_origin == 'custom'
         - (custom_repo_url is undefined or custom_repo_url == '')
         - ceph_custom_repositories is undefined
 
@@ -29,7 +29,7 @@
         msg: "One repository is missing a required parameter: name, description, baseurl."
       loop: "{{ ceph_custom_repositories }}"
       when:
-        - ceph_origin == 'custom'
+        - ceph_defaults_ceph_origin == 'custom'
         - ceph_custom_repositories is defined
         - (item.baseurl is undefined
           or item.name is undefined
