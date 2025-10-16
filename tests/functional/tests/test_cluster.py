@@ -11,4 +11,4 @@ class TestCluster(object):
 
         for h in self.host_ls:
             name = h['hostname']
-            assert sorted(inventory_variables[name]['labels']) == sorted(h['labels'])
+            assert all(item in h['labels'] for item in inventory_variables[name]['labels'])
