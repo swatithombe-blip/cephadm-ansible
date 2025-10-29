@@ -5,9 +5,9 @@
  System Checks
 --------------------------------------------------
 {% for item in preflight_results %}
-- {{ item['Check'] }}: {% if item['Result'] == 'PASS' %}✅ Passed{% elif item['Result'] == 'FAIL' %}❌ Failed{% else %}ℹ️ INFO{% endif %}
+- {{ item['Check'] }}: {% if item['Result'] == 'PASS' %}✅ Passed{% elif item['Result'] == 'FAIL' %}❌ Failed{% elif item['Result'] == 'WARN' %}⚠️ Warning{% else %}ℹ️ INFO{% endif %}
 
-{% if item['Result'] == 'FAIL' or item['Result'] == 'INFO' %}
+{% if item['Result'] in ['FAIL', 'WARN', 'INFO'] %}
     - Reason: {{ item['Reason'] }}
 {% endif %}
 
