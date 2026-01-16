@@ -21,6 +21,45 @@ This project provides some Ansible modules which allow you to write your own pla
 * ceph_orch_daemon: Stop/Start daemon(s)
 * ceph_config: Set ceph configuration
 
+# Installation
+
+## Using Ansible Galaxy (Recommended)
+
+This project is available as an Ansible Collection on Galaxy:
+
+```bash
+ansible-galaxy collection install ceph.cephadm
+```
+
+Once installed, you can use the collection in your playbooks:
+
+```yaml
+---
+- hosts: all
+  tasks:
+    - name: Bootstrap Ceph cluster
+      ceph.cephadm.cephadm_bootstrap:
+        mon_ip: 192.168.1.10
+```
+
+You can also run the collection's playbooks directly:
+
+```bash
+ansible-playbook ceph.cephadm.cephadm_preflight -i hosts
+```
+
+## Using Git (Traditional)
+
+You can also clone this repository and use it directly:
+
+```bash
+git clone https://github.com/ceph/cephadm-ansible
+cd cephadm-ansible
+ansible-playbook -i hosts cephadm-preflight.yml
+```
+
+Both installation methods are fully supported and provide the same functionality.
+
 # Terminology
 **<ins>admin host</ins>:**\
 A host where the admin keyring and ceph config file is present.\

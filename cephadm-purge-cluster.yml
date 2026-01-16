@@ -51,7 +51,7 @@
 
 
 - name: Check cluster hosts have cephadm and the required fsid {{ fsid }}
-  hosts: all,!{{ client_group }}
+  hosts: all,!{{ ceph_defaults_client_group }}
   gather_facts: false
   become: true
   any_errors_fatal: true
@@ -121,7 +121,7 @@
 
 
 - name: Purge ceph daemons from all hosts in the cluster
-  hosts: all,!{{ client_group }}
+  hosts: all,!{{ ceph_defaults_client_group }}
   become: true
   gather_facts: false
   any_errors_fatal: true
@@ -147,7 +147,7 @@
 
     - name: Remove ceph packages on ceph nodes
       ansible.builtin.package:
-        name: "{{ ceph_pkgs | union(infra_pkgs | intersect(infra_pkgs_purge | default([]))) }}"
+        name: "{{ ceph_defaults_ceph_pkgs | union(ceph_defaults_infra_pkgs | intersect(infra_pkgs_purge | default([]))) }}"
         state: absent
       register: result
       until: result is succeeded

@@ -143,7 +143,7 @@
 
 
 - name: Distribute client configuration
-  hosts: "{{ client_group }}"
+  hosts: "{{ ceph_defaults_client_group }}"
   become: true
   gather_facts: true
   tasks:
@@ -161,7 +161,7 @@
 
     - name: Install ceph client prerequisites if needed
       ansible.builtin.package:
-        name: "{{ ceph_client_pkgs }}"
+        name: "{{ ceph_defaults_ceph_client_pkgs }}"
         state: present
       register: result
       until: result is succeeded

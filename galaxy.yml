@@ -1,0 +1,32 @@
+---
+namespace: ceph
+name: cephadm
+version: 1.0.0
+readme: README.md
+authors:
+  - Guillaume Abrioux <gabrioux@redhat.com>
+  - Red Hat Ceph Team
+description: Ansible collection for Ceph cluster management with cephadm
+license:
+  - Apache-2.0
+tags:
+  - ceph
+  - cephadm
+  - storage
+  - infrastructure
+  - cluster
+repository: https://github.com/ceph/cephadm-ansible
+documentation: https://cephadm-ansible.readthedocs.io/
+homepage: https://github.com/ceph/cephadm-ansible
+issues: https://github.com/ceph/cephadm-ansible/issues
+
+build_ignore:
+  - .git
+  - .github
+  - .gitignore
+  - tests
+  - tox.ini
+  - mypy.ini
+  - .readthedocs.yaml
+  - cephadm-ansible.spec.in
+  - COLLECTION.md

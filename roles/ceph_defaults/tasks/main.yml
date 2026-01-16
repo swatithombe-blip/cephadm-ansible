@@ -1,0 +1,80 @@
+---
+- name: Backward compatibility for ceph_origin
+  ansible.builtin.set_fact:
+    ceph_defaults_ceph_origin: "{{ ceph_origin }}"
+  when: ceph_origin is defined
+
+- name: Backward compatibility for ceph_dev_branch
+  ansible.builtin.set_fact:
+    ceph_defaults_ceph_dev_branch: "{{ ceph_dev_branch }}"
+  when: ceph_dev_branch is defined
+
+- name: Backward compatibility for ceph_dev_sha1
+  ansible.builtin.set_fact:
+    ceph_defaults_ceph_dev_sha1: "{{ ceph_dev_sha1 }}"
+  when: ceph_dev_sha1 is defined
+
+- name: Backward compatibility for ceph_rhcs_version
+  ansible.builtin.set_fact:
+    ceph_defaults_ceph_rhcs_version: "{{ ceph_rhcs_version }}"
+  when: ceph_rhcs_version is defined
+
+- name: Backward compatibility for ceph_ibm_version
+  ansible.builtin.set_fact:
+    ceph_defaults_ceph_ibm_version: "{{ ceph_ibm_version }}"
+  when: ceph_ibm_version is defined
+
+- name: Backward compatibility for ceph_mirror
+  ansible.builtin.set_fact:
+    ceph_defaults_ceph_mirror: "{{ ceph_mirror }}"
+  when: ceph_mirror is defined
+
+- name: Backward compatibility for ceph_stable_key
+  ansible.builtin.set_fact:
+    ceph_defaults_ceph_stable_key: "{{ ceph_stable_key }}"
+  when: ceph_stable_key is defined
+
+- name: Backward compatibility for ceph_community_repo_baseurl
+  ansible.builtin.set_fact:
+    ceph_defaults_ceph_community_repo_baseurl: "{{ ceph_community_repo_baseurl }}"
+  when: ceph_community_repo_baseurl is defined
+
+- name: Backward compatibility for ceph_ibm_repo_baseurl
+  ansible.builtin.set_fact:
+    ceph_defaults_ceph_ibm_repo_baseurl: "{{ ceph_ibm_repo_baseurl }}"
+  when: ceph_ibm_repo_baseurl is defined
+
+- name: Backward compatibility for ceph_ibm_key
+  ansible.builtin.set_fact:
+    ceph_defaults_ceph_ibm_key: "{{ ceph_ibm_key }}"
+  when: ceph_ibm_key is defined
+
+- name: Backward compatibility for ceph_release
+  ansible.builtin.set_fact:
+    ceph_defaults_ceph_release: "{{ ceph_release }}"
+  when: ceph_release is defined
+
+- name: Backward compatibility for upgrade_ceph_packages
+  ansible.builtin.set_fact:
+    ceph_defaults_upgrade_ceph_packages: "{{ upgrade_ceph_packages }}"
+  when: upgrade_ceph_packages is defined
+
+- name: Backward compatibility for ceph_pkgs
+  ansible.builtin.set_fact:
+    ceph_defaults_ceph_pkgs: "{{ ceph_pkgs }}"
+  when: ceph_pkgs is defined
+
+- name: Backward compatibility for ceph_client_pkgs
+  ansible.builtin.set_fact:
+    ceph_defaults_ceph_client_pkgs: "{{ ceph_client_pkgs }}"
+  when: ceph_client_pkgs is defined
+
+- name: Backward compatibility for infra_pkgs
+  ansible.builtin.set_fact:
+    ceph_defaults_infra_pkgs: "{{ infra_pkgs }}"
+  when: infra_pkgs is defined
+
+- name: Backward compatibility for client_group
+  ansible.builtin.set_fact:
+    ceph_defaults_client_group: "{{ client_group }}"
+  when: client_group is defined
