@@ -53,7 +53,7 @@
           delegate_to: localhost
           when:
             - not cephadm_pubkey_path_stat.stat.exists | bool
-              or not cephadm_pubkey_path_stat.stat.isfile | bool
+              or not cephadm_pubkey_path_stat.stat.isreg | bool
 
     - name: Get the cephadm ssh pub key
       ansible.builtin.command: "cephadm shell {{ '--fsid ' + fsid if fsid is defined else '' }} ceph cephadm get-pub-key"
