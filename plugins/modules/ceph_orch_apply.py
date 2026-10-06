@@ -121,7 +121,7 @@ def change_required(current: Dict, expected: Dict) -> bool:
 def run_module() -> None:
 
     module_args = dict(
-        spec=dict(type='str', required=True),
+        spec=dict(type='str', required=True, no_log=True),
         fsid=dict(type='str', required=False),
         docker=dict(type=bool,
                     required=False,
